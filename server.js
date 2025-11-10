@@ -2,11 +2,8 @@ const { connect, default: mongoose } = require("mongoose");
 const app = require("./src/app");
 const { config } = require("./src/config");
 const router = require("./src/routes");
-const cors = require('cors')
-const express = require('express')
 // const app = express()
 // const { errorHandler, notFound } = require("./src/middlewares/error.middleware");
-app.use(cors())
 app.use("/api/v1", router);
 // app.all("*", notFound);
 // app.use(errorHandler);
