@@ -20,7 +20,7 @@ const AccountSchema = new Schema({
         type: String,
         require: true,
         indexed: true,
-        enum: ["admin", "user"]
+        enum: ["admin", "customer"]
     },
     state:{
         type: String,

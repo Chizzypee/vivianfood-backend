@@ -1,11 +1,14 @@
 const express = require("express");
 const cors = require("cors");
-const { config } = require("./config")
+const { config } = require("./config");
+const ProfileModel = require("./models/profile");
+const { APIError } = require("./middlwares/error.Api");
 require("dotenv").config
 const app = express()
 app.use(cors());
 app.use(express.json())
 app.use(express.urlencoded({extended:true}));
+app.use(express.json())
 
 app.use("/api/v1/status", (req, res) => {
     res.send(`Yes! welcome to ${config.APP_NAME}APP`);
