@@ -18,7 +18,7 @@ exports.register = async(req, res, next) =>{
         if(!email) return next(APIError.badRequest("invalid email"))
         if(!password) return next(APIError.badRequest("invalid password"))
 
-        if(isEmailValid(email)) return next(APIError.badRequest("nvalid email"))
+        if(isEmailValid(email)) return next(APIError.badRequest("invalid email"))
 
         const emailExist = await AccountModel.findOne({email}).exec();
         if(emailExist) return next(APIError.badRequest("Email already exist"))
@@ -39,24 +39,29 @@ exports.register = async(req, res, next) =>{
         console.log(error);
     }
 }
-
 exports.login = async(req, res, next) =>{
+    console.log("LOGIN ROUTE HIT")
     try {
-        let token = req.headers?.authorization?.split("")[1];  //set cookie upon login
+        let token = req.headers?.authorization?.split(" ")[1];  //set cookie upon login
         if(!token) token = req.cookie?.bflux;
         if(!token) token = req.headers?.cookie?.split("=")[1];
         
         const{email, password} = req.body
-        if(!email)  return next(APIError.notFound("email is required")) 
-        if(!password)  return next(APIError.notFound("password is required"))  
-        
-        const userExist = await AccountModel.findOne({email})
-        if(!userExist) return next(APIError.notFound("user not found"))  
+        // if(!email)  return next(APIError.notFound("email is required")) 
+        if(!email) return res.status(404).json({success: false, error: "email is required"}) 
+        // if(!password)  return next(APIError.notFound("password is required")) 
+        if(!password) return res.status(404).json({success: false, error: "password is required"}) 
+
+        const userExist = await AccountModel.findOne({email})   
+        // if(!userExist) return next(APIError.notFound("user not found"))  
+        if(!userExist) return res.status(404).json({success: false, error: "User Not found"}) 
 
         const checkUser = compareSync(password,userExist.password)
-        if(!checkUser) return next(APIError.notFound("incorrect password")) 
+        // if(!checkUser) return next(APIError.notFound("incorrect password"))
+        if(!checkUser) return res.status(404).json({success: false, error: "incorrect password"}) 
 
-        if(userExist.refreshtoken.length > 0) return next(APIError.notFound("You're already logged in")) 
+        // if(userExist.refreshtoken.length > 0) return next(APIError.notFound("You're already logged in")) 
+        if(userExist.refreshtoken.length > 0) return res.status(404).json({success: false, error: "You're already logged in"}) 
         if(userExist.state === "deactivated") return next(APIError.unauthorized("Account has been deactivated"))
 
         // AUTHENTICATIOON
@@ -75,25 +80,26 @@ exports.login = async(req, res, next) =>{
                 httpOnly: false,
                 secure: true,
                 sameSite: "none",
-                maxAge: 60*60 * 100
+                maxAge: 60*60 * 1000
             }
-        )
- return res.status(200).json({
-        success:true,
-        msg:"login successfully",
+        );
+
+    return res.status(200).json({
+        success: true,
+        msg:"login Successfully",
         user:{
             userId: userExist._id.toString(),
-            email:userExist.email,
             username: userExist.username,
+            email: userExist.email,
         },
         accessToken,
         refreshtoken
         
     })
     
-    } catch (error) {
-        console.log(error); 
-    }
+} catch (error) {
+    console.log(error); 
+}
 }
 
 exports.updateProfile = async (req, res, next) => {
@@ -125,7 +131,7 @@ exports.updateProfile = async (req, res, next) => {
 
             return res.status(201).json({
                 success: true,
-                msg: "Profile created",
+                msg: "Profile created successfully",
                 data: newProfile
             });
         }
@@ -141,7 +147,7 @@ exports.updateProfile = async (req, res, next) => {
 
         return res.status(200).json({
             success: true,
-            msg: "Profile updated",
+            msg: "Profile updated successfully",
             data: updatedProfile
         });
 
@@ -184,7 +190,7 @@ exports.updateAddress = async (req, res, next) => {
 
             return res.status(201).json({
                 success: true,
-                msg: "Address created",
+                msg: "Address created successfully",
                 data: newProfile
             });
         }
@@ -200,7 +206,7 @@ exports.updateAddress = async (req, res, next) => {
 
         return res.status(200).json({
             success: true,
-            msg: "Address updated",
+            msg: "Address updated Successfully",
             data: updatedProfile
         });
 
