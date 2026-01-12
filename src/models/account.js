@@ -13,7 +13,7 @@ const AccountSchema = new Schema({
         type: String,
         require: true,
     },
-    refreshtoken:{
+    refreshToken:{
         type: [],
     },
     type:{
@@ -27,7 +27,7 @@ const AccountSchema = new Schema({
         require: true,
         enum: ["active", "suspended", "deactivated",],
         default: "active",
-    }
+    },
 
 }, {timestamps: true}
 )

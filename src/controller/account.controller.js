@@ -61,7 +61,7 @@ exports.login = async(req, res, next) =>{
         if(!checkUser) return res.status(404).json({success: false, error: "incorrect password"}) 
 
         // if(userExist.refreshtoken.length > 0) return next(APIError.notFound("You're already logged in")) 
-        if(userExist.refreshtoken.length > 0) return res.status(404).json({success: false, error: "You're already logged in"}) 
+        // if(userExist.refreshToken.length > 0) return res.status(404).json({success: false, error: "You're already logged in"}) 
         if(userExist.state === "deactivated") return next(APIError.unauthorized("Account has been deactivated"))
 
         // AUTHENTICATIOON
@@ -72,7 +72,7 @@ exports.login = async(req, res, next) =>{
         };
         const accessToken = jwt.sign(payload, config.ACCESS_TOKEN_SECRET,{expiresIn: "15m"})
         const refreshtoken = jwt.sign(payload ,config.REFRESH_TOKEN_SECRET,{expiresIn: "30m"})
-        userExist.refreshtoken = [...userExist.refreshtoken.slice(-2), refreshtoken];
+        userExist.refreshToken = [...userExist.refreshToken.slice(-2), refreshtoken];
         userExist.save();
 
         res.cookie(
@@ -260,7 +260,6 @@ exports.getAddress = async (req, res, next) => {
         next(error);
     }
 }; 
-
 function generateReference(){
     return Date.now() + "-"  + Math.floor(Math.random() * 1000)
 }
@@ -288,8 +287,6 @@ exports.createOrder = async(req, res) =>{
         res.status(500).json({msg: " server error"})
     }
 } 
-
-
 exports.getOrder = async(req, res) =>{
     try {
         const {userId} = req.params;
@@ -304,5 +301,68 @@ exports.getOrder = async(req, res) =>{
     } catch (error) {
         console.log(error);
         res.status(500).json({msg: " server error"})
+    }
+}
+exports.refreshToken = async (req, res, next) =>{
+    try {
+        let token = req.headers?.authorization?.split("")[1];
+        if(!token) token = req.headers?.cookie?.split("=")[1];
+        const {refreshToken} = req.body;
+        if(!refreshToken) return res.status(400).json({error: "Refresh token is required"});
+        if(!token) return res.status(400).json({error: "Access token is required"});
+        const checkToken = jwt.decode(token, config.ACCESS_TOKEN_SECRET) 
+        if(!checkToken || checkToken.error) return next(APIError.unauthenticated());
+
+        const foundUser = await AccountModel.findOne({refreshToken}).exec();
+        //Detected refresh token reuse
+        if(!foundUser){
+            jwt.verify(refreshToken, config.REFRESH_TOKEN_SECRET, async (err, decode)=>{
+                const usedToken = await AccountModel.findOne({_id:decode.userId}).exec();
+                usedToken.refreshToken = [];
+                usedToken.save();
+            });
+            return next(APIError.unauthorized("Invalid Refresh Token"));
+        }
+
+        const newRefreshTokenArr = foundUser.refreshToken.filter(rt => rt !== refreshToken);
+        //evaluate jwt
+        jwt.verify(refreshToken, config.REFRESH_TOKEN_SECRET, async (err, decode)=>{
+            if(err){
+                foundUser.refreshToken = [...newRefreshTokenArr];
+                foundUser.save();
+            }
+            if(err || foundUser.toString() !== decode.id) return next(APIError.unauthenticated("tOken expired"));
+        });
+
+        //Refresh token still valid
+
+        const payload = {
+            id: foundUser._id.toString(),
+            email:foundUser.email,
+            role:foundUser.type,
+        };
+        const accessToken = jwt.sign(payload,config.ACCESS_TOKEN_SECRET,{expiresIn:"15m"});
+        const newRefreshToken = jwt.sign(payload, config.REFRESH_TOKEN_SECRET,{expiresIn: "30m"});
+        foundUser.refreshToken = [...newRefreshTokenArr, newRefreshToken]
+        foundUser.save();
+        res.clearCookie("bflux");
+        res.cookie(
+            "bflux", accessToken,{
+                httpOnly:false,
+                secure:true,
+                sameSite: "none",
+                maxAge: 60*60 * 1000
+    
+            }
+        )
+        return res.status(200).json({
+            success:true,
+            msg:"RefreshToken Renewed",
+            newRefreshToken,
+            accessToken
+        })
+
+    } catch (error) {
+       next(error) 
     }
 }
